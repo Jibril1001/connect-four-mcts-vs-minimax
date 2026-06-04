@@ -13,6 +13,7 @@ class MCTSNode:
         self.visits = 0
         self.wins = 0
         self.untried = state.get_valid_moves()
+        self.player = parent.state.current_player if parent else None
 
     def uct(self, c=math.sqrt(2)):
         if self.visits == 0:
@@ -21,32 +22,54 @@ class MCTSNode:
 
 
 class MCTSAgent:
-    def __init__(self, player: Player, iterations: int = 500):
-        self.player = player
+    def __init__(self, iterations: int = 500):
         self.iterations = iterations
 
-    def _rollout(self, state: ConnectFour) -> float:
+    def _rollout(self, state: ConnectFour) -> Player:
+        """Phase 3: SIMULATION (random playout).
+
+        Plays completely random moves from the given state until the
+        game ends. Returns the winner (or None for a draw).
+        """
         sim = state.clone()
         while not sim.game_over:
             moves = sim.get_valid_moves()
             if moves:
                 sim.play_turn(random.choice(moves))
-        if sim.winner == self.player:
-            return 1.0
-        elif sim.winner is None:
-            return 0.5
-        return 0.0
+        return sim.winner
 
     def get_move(self, state: ConnectFour) -> int:
+        """Runs MCTS to select the best move.
+
+        Repeats the four-phase cycle (selection, expansion, simulation,
+        backpropagation) for self.iterations times, then returns the
+        most-visited child of the root.
+
+        Phase 1 - SELECTION:
+            Starting from the root, traverse the tree using the UCT
+            formula. Always select the child with the highest UCT value
+            (the formula itself handles both players via per-node
+            win-perspective tracking).
+
+        Phase 2 - EXPANSION:
+            When a node with unplayed moves is reached, pick one untried
+            move and create a new child node for it.
+
+        Phase 3 - SIMULATION:
+            Call _rollout() — play random moves from the new node's
+            state until the game ends.
+
+        Phase 4 - BACKPROPAGATION:
+            Walk back up from the expanded node to the root, incrementing
+            each node's visit count and updating its win total from the
+            perspective of the player who made the move leading to it.
+        """
         root = MCTSNode(state.clone())
 
         for _ in range(self.iterations):
             node = root
             while not node.untried and node.children:
-                if node.state.current_player == self.player:
-                    node = max(node.children, key=lambda c: c.uct())
-                else:
-                    node = min(node.children, key=lambda c: c.uct())
+                node = max(node.children, key=lambda c: c.uct())
 
             if node.untried and not node.state.game_over:
                 move = node.untried.pop()
@@ -59,7 +82,11 @@ class MCTSAgent:
 
             while node:
                 node.visits += 1
-                node.wins += result
+                if node.player is not None:
+                    if result == node.player:
+                        node.wins += 1.0
+                    elif result is None:
+                        node.wins += 0.5
                 node = node.parent
 
         if not root.children:
