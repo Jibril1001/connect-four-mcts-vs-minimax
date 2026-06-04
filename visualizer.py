@@ -11,7 +11,7 @@ except Exception:
 
 class Visualizer:
     def __init__(self):
-        self.symbols = {Player.EMPTY: '.', Player.RED: '\U0001f534', Player.YELLOW: '\U0001f7e1'}
+        self.symbols = {Player.EMPTY: '\u3000', Player.RED: '\U0001f534', Player.YELLOW: '\U0001f7e1'}
 
     def clear(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -20,14 +20,19 @@ class Visualizer:
         return {Player.RED: '\U0001f534', Player.YELLOW: '\U0001f7e1'}.get(player, '')
 
     def render(self, state: ConnectFour):
-        print("\n 0  1  2  3  4  5  6")
-        print(" " + "-" * 25)
+        print()
+        for c in range(state.cols):
+            print(f"  {c} ", end="")
+        print()
+        for c in range(state.cols):
+            print(f" {'.' * 2} ", end="")
+        print()
         for row in range(state.rows):
-            line = ""
             for col in range(state.cols):
                 piece = Player(state.board[row][col])
-                line += f" {self.symbols[piece]} "
-            print(line)
+                symbol = self.symbols[piece]
+                print(f" {symbol} ", end="")
+            print()
             print()
 
         if state.game_over:
